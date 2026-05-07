@@ -10,11 +10,6 @@
 
         // KHÓA CỨNG ĐỘ MỜ
         _Opacity ("Chốt cứng độ hiển thị", Range(0.0, 1.0)) = 0.3
-
-        // --- BÍ KÍP BÓP NHỌN ĐỈNH ---
-        _TaperScale ("Độ thu nhỏ ở đỉnh (0 là nhọn hoắt)", Float) = 0.0
-        _TaperBottom ("Tọa độ Y ở đáy lò xo", Float) = -1.0
-        _TaperTop ("Tọa độ Y ở đỉnh lò xo", Float) = 1.0
     }
 
     SubShader
@@ -52,25 +47,9 @@
             float _ScrollSpeedX;
             float _Opacity;
 
-            // Khai báo biến bóp đỉnh
-            float _TaperScale;
-            float _TaperBottom;
-            float _TaperTop;
-
             Varyings vert(Attributes IN)
             {
                 Varyings OUT;
-                
-                // --- PHÉP THUẬT BÓP NGHẸT ĐỈNH ---
-                // Tính toán xem điểm này đang nằm ở khúc nào của lò xo (từ 0 đến 1)
-                float heightRatio = saturate((IN.positionOS.y - _TaperBottom) / (_TaperTop - _TaperBottom));
-                
-                // Nội suy kích thước: Dưới đáy bằng 1.0 (to bình thường), lên đỉnh thu về _TaperScale
-                float widthScale = lerp(1.0, _TaperScale, heightRatio);
-                
-                // Nhân trục X và Z để bóp khối 3D lại, giữ nguyên chiều cao Y
-                IN.positionOS.xz *= widthScale;
-                // -------------------------------------
 
                 OUT.positionHCS = TransformObjectToHClip(IN.positionOS.xyz);
                 

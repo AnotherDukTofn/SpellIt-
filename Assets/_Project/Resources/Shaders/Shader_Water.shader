@@ -96,7 +96,6 @@ Shader "Custom/StylizedWater"
                 if (unity_OrthoParams.w > 0.5)
                 {
                     // --- Orthographic camera ---
-                    // In ortho, depth buffer is linear [0,1] mapped to [near, far]
                     float sceneDepthOrtho;
                     #if UNITY_REVERSED_Z
                         sceneDepthOrtho = lerp(_ProjectionParams.z, _ProjectionParams.y, rawDepth);
@@ -104,7 +103,6 @@ Shader "Custom/StylizedWater"
                         sceneDepthOrtho = lerp(_ProjectionParams.y, _ProjectionParams.z, rawDepth);
                     #endif
                     
-                    // Surface depth in ortho: use view-space Z
                     float surfDepthOrtho = -TransformWorldToView(float4(input.positionWS, 1.0)).z;
                     depthDiff = max(0, sceneDepthOrtho - surfDepthOrtho);
                 }
@@ -130,6 +128,35 @@ Shader "Custom/StylizedWater"
                 // Composite: overlay foam on water
                 half4 finalColor = lerp(waterColor, _FoamColor, foam);
                 finalColor.a = lerp(waterColor.a, 1.0, foam);
+                
+                // --- LIGHTING ---
+                
+                // Analytical normal from wave function for smooth shading
+                float dx = cos(input.positionWS.x * _WaveScale + _Time.y * _WaveSpeed) * _WaveScale * _WaveHeight;
+                float dz = -sin(input.positionWS.z * _WaveScale + _Time.y * _WaveSpeed) * _WaveScale * _WaveHeight;
+                float3 normalWS = normalize(float3(-dx, 1.0, -dz));
+                
+                // Main directional light
+                Light mainLight = GetMainLight();
+                half NdotL = saturate(dot(normalWS, mainLight.direction));
+                
+                // Ambient lighting (spherical harmonics)
+                half3 ambient = SampleSH(normalWS);
+                
+                // Diffuse lighting
+                half3 lighting = ambient + mainLight.color * NdotL;
+                
+                // Stylized Specular highlight (only on water, not foam)
+                float3 viewDir = normalize(_WorldSpaceCameraPos - input.positionWS);
+                float3 halfVector = normalize(mainLight.direction + viewDir);
+                half NdotH = saturate(dot(normalWS, halfVector));
+                half specular = pow(NdotH, 128.0) * step(0.5, NdotL); // Sharp stylized specular
+                
+                // Apply lighting
+                finalColor.rgb = finalColor.rgb * lighting + (specular * mainLight.color * 0.8 * (1.0 - foam));
+
+                // Apply Fog
+                finalColor.rgb = MixFog(finalColor.rgb, ComputeFogFactor(input.positionCS.z));
                 
                 return finalColor;
             }
